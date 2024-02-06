@@ -9,7 +9,7 @@ This package This package integrate for the markers a fade animation when the ma
 1. Add the latest version of package to your pubspec.yaml (and run`dart pub get`):
 ```yaml
 dependencies:
-  google_map_fade_markers:^0.0.1
+  google_map_fade_markers:^0.0.3
 ```
 2. Prepare for your platform:
 ### Android

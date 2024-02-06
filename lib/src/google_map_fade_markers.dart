@@ -226,47 +226,47 @@ class GoogleMapFadeMarkers extends StatelessWidget {
     return BlocProvider(
       create: (context) => GoogleMapFadeMarkersCubit(duration: duration),
       child: _CustomMap(
-          buildingsEnabled: buildingsEnabled,
-          webGestureHandling: webGestureHandling,
-          cameraTargetBounds: cameraTargetBounds,
-          circles: circles,
-          cloudMapId: cloudMapId,
-          compassEnabled: compassEnabled,
-          fortyFiveDegreeImageryEnabled: fortyFiveDegreeImageryEnabled,
-          gestureRecognizers: gestureRecognizers,
-          indoorViewEnabled: indoorViewEnabled,
-          layoutDirection: layoutDirection,
-          liteModeEnabled: liteModeEnabled,
-          mapToolbarEnabled: mapToolbarEnabled,
-          mapType: mapType,
-          minMaxZoomPreference: minMaxZoomPreference,
-          myLocationButtonEnabled: myLocationButtonEnabled,
-          myLocationEnabled: myLocationEnabled,
-          onCameraMove: onCameraMove,
-          onCameraMoveStarted: onCameraMoveStarted,
-          onLongPress: onLongPress,
-          onTap: onTap,
-          padding: padding,
-          polygons: polygons,
-          polylines: polylines,
-          rotateGesturesEnabled: rotateGesturesEnabled,
-          scrollGesturesEnabled: scrollGesturesEnabled,
-          tileOverlays: tileOverlays,
-          tiltGesturesEnabled: tiltGesturesEnabled,
-          trafficEnabled: trafficEnabled,
-          zoomControlsEnabled: zoomControlsEnabled,
-          zoomGesturesEnabled: zoomGesturesEnabled,
-          initialCameraPosition: initialCameraPosition,
-          markers: markers.map((e) => e.copyWith(alphaParam: 0)).toSet(),
-          onCameraIdle: onCameraIdle,
-          onMapCreated: onMapCreated,),
+        buildingsEnabled: buildingsEnabled,
+        webGestureHandling: webGestureHandling,
+        cameraTargetBounds: cameraTargetBounds,
+        circles: circles,
+        cloudMapId: cloudMapId,
+        compassEnabled: compassEnabled,
+        fortyFiveDegreeImageryEnabled: fortyFiveDegreeImageryEnabled,
+        gestureRecognizers: gestureRecognizers,
+        indoorViewEnabled: indoorViewEnabled,
+        layoutDirection: layoutDirection,
+        liteModeEnabled: liteModeEnabled,
+        mapToolbarEnabled: mapToolbarEnabled,
+        mapType: mapType,
+        minMaxZoomPreference: minMaxZoomPreference,
+        myLocationButtonEnabled: myLocationButtonEnabled,
+        myLocationEnabled: myLocationEnabled,
+        onCameraMove: onCameraMove,
+        onCameraMoveStarted: onCameraMoveStarted,
+        onLongPress: onLongPress,
+        onTap: onTap,
+        padding: padding,
+        polygons: polygons,
+        polylines: polylines,
+        rotateGesturesEnabled: rotateGesturesEnabled,
+        scrollGesturesEnabled: scrollGesturesEnabled,
+        tileOverlays: tileOverlays,
+        tiltGesturesEnabled: tiltGesturesEnabled,
+        trafficEnabled: trafficEnabled,
+        zoomControlsEnabled: zoomControlsEnabled,
+        zoomGesturesEnabled: zoomGesturesEnabled,
+        initialCameraPosition: initialCameraPosition,
+        markers: markers.map((e) => e.copyWith(alphaParam: 0)).toSet(),
+        onCameraIdle: onCameraIdle,
+        onMapCreated: onMapCreated,
+      ),
     );
   }
 }
 
 class _CustomMap extends StatefulWidget {
   const _CustomMap({
-    super.key,
     required this.initialCameraPosition,
     this.onMapCreated,
     this.gestureRecognizers = const <Factory<OneSequenceGestureRecognizer>>{},
@@ -487,12 +487,6 @@ class _CustomMapState extends State<_CustomMap> {
   void initState() {
     super.initState();
     _previousMarkers = {...widget.markers};
-  }
-
-  @override
-  void dispose() {
-    context.read<GoogleMapFadeMarkersCubit>().close();
-    super.dispose();
   }
 
   @override

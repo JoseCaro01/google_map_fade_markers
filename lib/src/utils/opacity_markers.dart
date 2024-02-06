@@ -7,9 +7,7 @@ class OpacityMarkers extends Equatable {
   });
   final double previousMarkersOpacity;
   final double currentMarkersOpacity;
-  
-  @override
-  List<Object?> get props => [previousMarkersOpacity,currentMarkersOpacity];
-  
 
+  @override
+  List<Object?> get props => [previousMarkersOpacity, currentMarkersOpacity];
 }

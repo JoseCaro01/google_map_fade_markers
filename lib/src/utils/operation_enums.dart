@@ -1,1 +1,1 @@
-enum Operation { addition, subtraction,multiplication,division }
+enum Operation { addition, subtraction, multiplication, division }
