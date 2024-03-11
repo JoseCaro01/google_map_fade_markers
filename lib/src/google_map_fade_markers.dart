@@ -543,9 +543,13 @@ class _CustomMapState extends State<_CustomMap> {
       zoomControlsEnabled: widget.zoomControlsEnabled,
       zoomGesturesEnabled: widget.zoomGesturesEnabled,
       markers: {
-        ..._previousMarkers.map(
-          (e) => e.copyWith(alphaParam: opacityMarkers.previousMarkersOpacity),
-        ),
+        ..._previousMarkers
+            .map(
+              (e) =>
+                  e.copyWith(alphaParam: opacityMarkers.previousMarkersOpacity),
+            )
+            .where((element) => element.alpha != 0.0)
+            .toSet(),
         ...widget.markers.map(
           (e) => e.copyWith(alphaParam: opacityMarkers.currentMarkersOpacity),
         ),

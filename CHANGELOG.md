@@ -9,3 +9,7 @@
 ## 0.0.3 
 
 * Bug fix: Dispose method cause an exception when the user go back to a previous view.
+
+## 0.0.4 
+
+* Bug fix: Can call onTap method of the previousMarkers when alpha is 0.0

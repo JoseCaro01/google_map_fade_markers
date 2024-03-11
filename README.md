@@ -11,7 +11,9 @@ This package This package integrate for the markers a fade animation when the ma
 dependencies:
   google_map_fade_markers:^0.0.3
 ```
+
 2. Prepare for your platform:
+
 ### Android
 1. Set the `minSdkVersion` in `android/app/build.gradle`:
 
@@ -82,7 +84,6 @@ to include the Google Maps JS SDK.
 Check [the `google_maps_flutter_web` README](https://pub.dev/packages/google_maps_flutter_web)
 for the latest information on how to prepare your App to use Google Maps on the
 web.
-
 
 3. Import the package and use it in your Flutter App.
 ```dart
