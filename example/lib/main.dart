@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:google_map_fade_markers/google_map_fade_markers.dart';
 
@@ -29,6 +31,9 @@ class _MainAppState extends State<MainApp> {
           target: LatLng(40.463669, -3.749220),
         ),
         markers: markers,
+        onZoomMove: (zoomType, actualZoom) {
+          log(zoomType.toString());
+        },
         onTap: (argument) {
           markers
             ..clear()

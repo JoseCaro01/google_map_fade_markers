@@ -5,11 +5,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_map_fade_markers/src/cubit/google_map_fade_markers_cubit.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+enum ZoomType { zoomIn, zoomOut }
+
 class GoogleMapFadeMarkers extends StatelessWidget {
   const GoogleMapFadeMarkers({
     super.key,
     required this.initialCameraPosition,
     this.duration = const Duration(seconds: 2),
+    this.onZoomMove,
     this.onMapCreated,
     this.gestureRecognizers = const <Factory<OneSequenceGestureRecognizer>>{},
     this.webGestureHandling,
@@ -49,6 +52,9 @@ class GoogleMapFadeMarkers extends StatelessWidget {
 
   /// The duration of the markers fade animation. The animation total duration is the double of the specified value
   final Duration duration;
+
+  /// Callback method for when the map move zoom in or zoom out
+  final void Function(ZoomType zoomType, double actualZoom)? onZoomMove;
 
   /// Callback method for when the map is ready to be used.
   ///
@@ -226,6 +232,7 @@ class GoogleMapFadeMarkers extends StatelessWidget {
     return BlocProvider(
       create: (context) => GoogleMapFadeMarkersCubit(duration: duration),
       child: _CustomMap(
+        onZoomMove: onZoomMove,
         buildingsEnabled: buildingsEnabled,
         webGestureHandling: webGestureHandling,
         cameraTargetBounds: cameraTargetBounds,
@@ -268,6 +275,7 @@ class GoogleMapFadeMarkers extends StatelessWidget {
 class _CustomMap extends StatefulWidget {
   const _CustomMap({
     required this.initialCameraPosition,
+    this.onZoomMove,
     this.onMapCreated,
     this.gestureRecognizers = const <Factory<OneSequenceGestureRecognizer>>{},
     this.webGestureHandling,
@@ -304,6 +312,9 @@ class _CustomMap extends StatefulWidget {
     this.onLongPress,
     this.cloudMapId,
   });
+
+  /// Callback method for when the map move zoom in or zoom out
+  final void Function(ZoomType zoomType, double actualZoom)? onZoomMove;
 
   /// Callback method for when the map is ready to be used.
   ///
@@ -482,10 +493,15 @@ class _CustomMap extends StatefulWidget {
 
 class _CustomMapState extends State<_CustomMap> {
   late final Set<Marker> _previousMarkers;
+  late final GoogleMapController _googleMapController;
+  double _initialZoom = 0;
+  double _finalZoom = 0;
 
   @override
   void initState() {
     super.initState();
+    _initialZoom = widget.initialCameraPosition.zoom;
+    _finalZoom = widget.initialCameraPosition.zoom;
     _previousMarkers = {...widget.markers};
   }
 
@@ -510,8 +526,19 @@ class _CustomMapState extends State<_CustomMap> {
         .select((GoogleMapFadeMarkersCubit bloc) => bloc.state.opacityMarkers);
     return GoogleMap(
       initialCameraPosition: widget.initialCameraPosition,
-      onMapCreated: (controller) => widget.onMapCreated?.call(controller),
-      onCameraIdle: widget.onCameraIdle,
+      onMapCreated: (controller) {
+        _googleMapController = controller;
+        widget.onMapCreated?.call(controller);
+      },
+      onCameraIdle: () async {
+        widget.onCameraIdle?.call();
+        _finalZoom = await _googleMapController.getZoomLevel();
+        if (_initialZoom != _finalZoom) {
+          widget.onZoomMove?.call(
+              _initialZoom > _finalZoom ? ZoomType.zoomOut : ZoomType.zoomIn,
+              _finalZoom);
+        }
+      },
       buildingsEnabled: widget.buildingsEnabled,
       webGestureHandling: widget.webGestureHandling,
       cameraTargetBounds: widget.cameraTargetBounds,
@@ -529,7 +556,10 @@ class _CustomMapState extends State<_CustomMap> {
       myLocationButtonEnabled: widget.myLocationButtonEnabled,
       myLocationEnabled: widget.myLocationEnabled,
       onCameraMove: widget.onCameraMove,
-      onCameraMoveStarted: widget.onCameraMoveStarted,
+      onCameraMoveStarted: () async {
+        widget.onCameraMoveStarted?.call();
+        _initialZoom = await _googleMapController.getZoomLevel();
+      },
       onLongPress: widget.onLongPress,
       onTap: widget.onTap,
       padding: widget.padding,

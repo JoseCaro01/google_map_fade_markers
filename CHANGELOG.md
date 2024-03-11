@@ -13,3 +13,7 @@
 ## 0.0.4 
 
 * Bug fix: Can call onTap method of the previousMarkers when alpha is 0.0
+
+## 0.0.5 
+
+* Implemented onZoomMove method
