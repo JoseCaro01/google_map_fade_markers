@@ -17,3 +17,8 @@
 ## 0.0.5 
 
 * Implemented onZoomMove method
+
+
+## 0.0.6
+
+* Update pubspec version and simplify fade logic using notifiers

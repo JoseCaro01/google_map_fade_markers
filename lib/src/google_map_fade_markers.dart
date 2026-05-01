@@ -1,8 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:google_map_fade_markers/src/cubit/google_map_fade_markers_cubit.dart';
+import 'package:google_map_fade_markers/src/notifier/marker_fade_notifier.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 enum ZoomType { zoomIn, zoomOut }
@@ -11,11 +10,14 @@ class GoogleMapFadeMarkers extends StatelessWidget {
   const GoogleMapFadeMarkers({
     super.key,
     required this.initialCameraPosition,
-    this.duration = const Duration(seconds: 2),
     this.onZoomMove,
+    this.duration = const Duration(seconds: 1),
+    this.style,
     this.onMapCreated,
     this.gestureRecognizers = const <Factory<OneSequenceGestureRecognizer>>{},
     this.webGestureHandling,
+    this.webCameraControlPosition,
+    this.webCameraControlEnabled = true,
     this.compassEnabled = true,
     this.mapToolbarEnabled = true,
     this.cameraTargetBounds = CameraTargetBounds.unbounded,
@@ -31,8 +33,6 @@ class GoogleMapFadeMarkers extends StatelessWidget {
     this.myLocationEnabled = false,
     this.myLocationButtonEnabled = true,
     this.layoutDirection,
-
-    /// If no padding is specified default padding will be 0.
     this.padding = EdgeInsets.zero,
     this.indoorViewEnabled = false,
     this.trafficEnabled = false,
@@ -41,20 +41,25 @@ class GoogleMapFadeMarkers extends StatelessWidget {
     this.polygons = const <Polygon>{},
     this.polylines = const <Polyline>{},
     this.circles = const <Circle>{},
+    this.clusterManagers = const <ClusterManager>{},
+    this.heatmaps = const <Heatmap>{},
     this.onCameraMoveStarted,
     this.tileOverlays = const <TileOverlay>{},
+    this.groundOverlays = const <GroundOverlay>{},
     this.onCameraMove,
     this.onCameraIdle,
     this.onTap,
     this.onLongPress,
-    this.cloudMapId,
+    this.markerType = GoogleMapMarkerType.marker,
+    this.colorScheme,
+    this.mapId,
   });
-
-  /// The duration of the markers fade animation. The animation total duration is the double of the specified value
-  final Duration duration;
 
   /// Callback method for when the map move zoom in or zoom out
   final void Function(ZoomType zoomType, double actualZoom)? onZoomMove;
+
+  /// The duration of the markers fade animation. The animation total duration is the double of the specified value
+  final Duration duration;
 
   /// Callback method for when the map is ready to be used.
   ///
@@ -63,6 +68,19 @@ class GoogleMapFadeMarkers extends StatelessWidget {
 
   /// The initial position of the map's camera.
   final CameraPosition initialCameraPosition;
+
+  /// The style for the map.
+  ///
+  /// Set to null to clear any previous custom styling.
+  ///
+  /// If problems were detected with the [mapStyle], including un-parsable
+  /// styling JSON, unrecognized feature type, unrecognized element type, or
+  /// invalid styler keys, the style is left unchanged, and the error can be
+  /// retrieved with [GoogleMapController.getStyleError].
+  ///
+  /// The style string can be generated using the
+  /// [map style tool](https://mapstyle.withgoogle.com/).
+  final String? style;
 
   /// True if the map should show a compass when rotated.
   final bool compassEnabled;
@@ -114,6 +132,8 @@ class GoogleMapFadeMarkers extends StatelessWidget {
   final bool fortyFiveDegreeImageryEnabled;
 
   /// Padding to be set on map. See https://developers.google.com/maps/documentation/android-sdk/map#map_padding for more details.
+  ///
+  /// If no padding is specified, the default padding is 0.
   final EdgeInsets padding;
 
   /// Markers to be placed on the map.
@@ -128,8 +148,45 @@ class GoogleMapFadeMarkers extends StatelessWidget {
   /// Circles to be placed on the map.
   final Set<Circle> circles;
 
+  /// Heatmaps to show on the map.
+  final Set<Heatmap> heatmaps;
+
   /// Tile overlays to be placed on the map.
   final Set<TileOverlay> tileOverlays;
+
+  /// Cluster Managers to be initialized for the map.
+  ///
+  /// On the web, an extra step is required to enable clusters.
+  /// See https://pub.dev/packages/google_maps_flutter_web.
+  final Set<ClusterManager> clusterManagers;
+
+  /// Ground overlays to be initialized for the map.
+  ///
+  /// Support table for Ground Overlay features:
+  /// | Feature                     | Android                  | iOS                      | Web |
+  /// |-----------------------------|--------------------------|--------------------------|-----|
+  /// | [GroundOverlay.image]       | Yes                      | Yes                      | Yes |
+  /// | [GroundOverlay.bounds]      | Yes                      | Yes                      | Yes |
+  /// | [GroundOverlay.position]    | Yes                      | Yes                      | No  |
+  /// | [GroundOverlay.width]       | Yes (with position only) | No                       | No  |
+  /// | [GroundOverlay.height]      | Yes (with position only) | No                       | No  |
+  /// | [GroundOverlay.anchor]      | Yes                      | Yes                      | No  |
+  /// | [GroundOverlay.zoomLevel]   | No                       | Yes (with position only) | No  |
+  /// | [GroundOverlay.bearing]     | Yes                      | Yes                      | No  |
+  /// | [GroundOverlay.transparency]| Yes                      | Yes                      | Yes |
+  /// | [GroundOverlay.zIndex]      | Yes                      | Yes                      | No  |
+  /// | [GroundOverlay.visible]     | Yes                      | Yes                      | Yes |
+  /// | [GroundOverlay.clickable]   | Yes                      | Yes                      | Yes |
+  /// | [GroundOverlay.onTap]       | Yes                      | Yes                      | Yes |
+  ///
+  /// - On Android, [GroundOverlay.width] is required if
+  ///   [GroundOverlay.position] is set.
+  /// - On iOS, [GroundOverlay.zoomLevel] is required if
+  ///   [GroundOverlay.position] is set.
+  /// - [GroundOverlay.image] must be a [MapBitmap]. See [AssetMapBitmap] and
+  ///   [BytesMapBitmap]. [MapBitmap.bitmapScaling] must be set to
+  ///   [MapBitmapScaling.none].
+  final Set<GroundOverlay> groundOverlays;
 
   /// Called when the camera starts moving.
   ///
@@ -166,6 +223,8 @@ class GoogleMapFadeMarkers extends StatelessWidget {
   /// chevron if the device is moving.
   /// * The My Location button animates to focus on the user's current location
   /// if the user's location is currently known.
+  ///
+  /// This feature is not present in the Google Maps SDK for the web.
   ///
   /// Enabling this feature requires adding location permissions to both native
   /// platforms of your app.
@@ -221,53 +280,94 @@ class GoogleMapFadeMarkers extends StatelessWidget {
   /// See [WebGestureHandling] for more details.
   final WebGestureHandling? webGestureHandling;
 
+  /// This setting controls how the API handles cameraControl button position on the map. Web only.
+  ///
+  /// If null, the Google Maps API will use its default camera control position.
+  ///
+  /// See [WebCameraControlPosition] for more details.
+  final WebCameraControlPosition? webCameraControlPosition;
+
+  /// Enables or disables the Camera controls. Web only.
+  ///
+  /// See https://developers.google.com/maps/documentation/javascript/controls for more details.
+  final bool webCameraControlEnabled;
+
   /// Identifier that's associated with a specific cloud-based map style.
   ///
   /// See https://developers.google.com/maps/documentation/get-map-id
   /// for more details.
-  final String? cloudMapId;
+  final String? mapId;
+
+  /// Indicates whether map uses [AdvancedMarker]s or [Marker]s.
+  ///
+  /// [AdvancedMarker] and [Marker]s classes might not be related to each other
+  /// in the platform implementation. It's important to set the correct
+  /// [GoogleMapMarkerType] so that the platform implementation can handle the
+  /// markers:
+  /// * If [GoogleMapMarkerType.advancedMarker] is used, all markers must be of
+  ///   type [AdvancedMarker].
+  /// * If [GoogleMapMarkerType.marker] is used, markers cannot be of type
+  ///   [AdvancedMarker].
+  ///
+  /// While some features work with either type, using the incorrect type
+  /// may result in unexpected behavior.
+  final GoogleMapMarkerType markerType;
+
+  /// Color scheme for the cloud-style map. Web only.
+  ///
+  /// The colorScheme option can only be set when the map is initialized;
+  /// setting this option after the map is created will have no effect.
+  ///
+  /// See https://developers.google.com/maps/documentation/javascript/mapcolorscheme for more details.
+  final MapColorScheme? colorScheme;
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => GoogleMapFadeMarkersCubit(duration: duration),
-      child: _CustomMap(
-        onZoomMove: onZoomMove,
-        buildingsEnabled: buildingsEnabled,
-        webGestureHandling: webGestureHandling,
-        cameraTargetBounds: cameraTargetBounds,
-        circles: circles,
-        cloudMapId: cloudMapId,
-        compassEnabled: compassEnabled,
-        fortyFiveDegreeImageryEnabled: fortyFiveDegreeImageryEnabled,
-        gestureRecognizers: gestureRecognizers,
-        indoorViewEnabled: indoorViewEnabled,
-        layoutDirection: layoutDirection,
-        liteModeEnabled: liteModeEnabled,
-        mapToolbarEnabled: mapToolbarEnabled,
-        mapType: mapType,
-        minMaxZoomPreference: minMaxZoomPreference,
-        myLocationButtonEnabled: myLocationButtonEnabled,
-        myLocationEnabled: myLocationEnabled,
-        onCameraMove: onCameraMove,
-        onCameraMoveStarted: onCameraMoveStarted,
-        onLongPress: onLongPress,
-        onTap: onTap,
-        padding: padding,
-        polygons: polygons,
-        polylines: polylines,
-        rotateGesturesEnabled: rotateGesturesEnabled,
-        scrollGesturesEnabled: scrollGesturesEnabled,
-        tileOverlays: tileOverlays,
-        tiltGesturesEnabled: tiltGesturesEnabled,
-        trafficEnabled: trafficEnabled,
-        zoomControlsEnabled: zoomControlsEnabled,
-        zoomGesturesEnabled: zoomGesturesEnabled,
-        initialCameraPosition: initialCameraPosition,
-        markers: markers.map((e) => e.copyWith(alphaParam: 0)).toSet(),
-        onCameraIdle: onCameraIdle,
-        onMapCreated: onMapCreated,
-      ),
+    return _CustomMap(
+      onZoomMove: onZoomMove,
+      duration: duration,
+      clusterManagers: clusterManagers,
+      colorScheme: colorScheme,
+      groundOverlays: groundOverlays,
+      heatmaps: heatmaps,
+      mapId: mapId,
+      markerType: markerType,
+      style: style,
+      webCameraControlEnabled: webCameraControlEnabled,
+      webCameraControlPosition: webCameraControlPosition,
+      buildingsEnabled: buildingsEnabled,
+      webGestureHandling: webGestureHandling,
+      cameraTargetBounds: cameraTargetBounds,
+      circles: circles,
+      compassEnabled: compassEnabled,
+      fortyFiveDegreeImageryEnabled: fortyFiveDegreeImageryEnabled,
+      gestureRecognizers: gestureRecognizers,
+      indoorViewEnabled: indoorViewEnabled,
+      layoutDirection: layoutDirection,
+      liteModeEnabled: liteModeEnabled,
+      mapToolbarEnabled: mapToolbarEnabled,
+      mapType: mapType,
+      minMaxZoomPreference: minMaxZoomPreference,
+      myLocationButtonEnabled: myLocationButtonEnabled,
+      myLocationEnabled: myLocationEnabled,
+      onCameraMove: onCameraMove,
+      onCameraMoveStarted: onCameraMoveStarted,
+      onLongPress: onLongPress,
+      onTap: onTap,
+      padding: padding,
+      polygons: polygons,
+      polylines: polylines,
+      rotateGesturesEnabled: rotateGesturesEnabled,
+      scrollGesturesEnabled: scrollGesturesEnabled,
+      tileOverlays: tileOverlays,
+      tiltGesturesEnabled: tiltGesturesEnabled,
+      trafficEnabled: trafficEnabled,
+      zoomControlsEnabled: zoomControlsEnabled,
+      zoomGesturesEnabled: zoomGesturesEnabled,
+      initialCameraPosition: initialCameraPosition,
+      markers: markers.map((e) => e.copyWith(alphaParam: 0)).toSet(),
+      onCameraIdle: onCameraIdle,
+      onMapCreated: onMapCreated,
     );
   }
 }
@@ -275,10 +375,14 @@ class GoogleMapFadeMarkers extends StatelessWidget {
 class _CustomMap extends StatefulWidget {
   const _CustomMap({
     required this.initialCameraPosition,
+    required this.duration,
     this.onZoomMove,
+    this.style,
     this.onMapCreated,
     this.gestureRecognizers = const <Factory<OneSequenceGestureRecognizer>>{},
     this.webGestureHandling,
+    this.webCameraControlPosition,
+    this.webCameraControlEnabled = true,
     this.compassEnabled = true,
     this.mapToolbarEnabled = true,
     this.cameraTargetBounds = CameraTargetBounds.unbounded,
@@ -294,8 +398,6 @@ class _CustomMap extends StatefulWidget {
     this.myLocationEnabled = false,
     this.myLocationButtonEnabled = true,
     this.layoutDirection,
-
-    /// If no padding is specified default padding will be 0.
     this.padding = EdgeInsets.zero,
     this.indoorViewEnabled = false,
     this.trafficEnabled = false,
@@ -304,17 +406,25 @@ class _CustomMap extends StatefulWidget {
     this.polygons = const <Polygon>{},
     this.polylines = const <Polyline>{},
     this.circles = const <Circle>{},
+    this.clusterManagers = const <ClusterManager>{},
+    this.heatmaps = const <Heatmap>{},
     this.onCameraMoveStarted,
     this.tileOverlays = const <TileOverlay>{},
+    this.groundOverlays = const <GroundOverlay>{},
     this.onCameraMove,
     this.onCameraIdle,
     this.onTap,
     this.onLongPress,
-    this.cloudMapId,
+    this.markerType = GoogleMapMarkerType.marker,
+    this.colorScheme,
+    this.mapId,
   });
 
   /// Callback method for when the map move zoom in or zoom out
   final void Function(ZoomType zoomType, double actualZoom)? onZoomMove;
+
+  /// The duration of the markers fade animation. The animation total duration is the double of the specified value
+  final Duration duration;
 
   /// Callback method for when the map is ready to be used.
   ///
@@ -323,6 +433,19 @@ class _CustomMap extends StatefulWidget {
 
   /// The initial position of the map's camera.
   final CameraPosition initialCameraPosition;
+
+  /// The style for the map.
+  ///
+  /// Set to null to clear any previous custom styling.
+  ///
+  /// If problems were detected with the [mapStyle], including un-parsable
+  /// styling JSON, unrecognized feature type, unrecognized element type, or
+  /// invalid styler keys, the style is left unchanged, and the error can be
+  /// retrieved with [GoogleMapController.getStyleError].
+  ///
+  /// The style string can be generated using the
+  /// [map style tool](https://mapstyle.withgoogle.com/).
+  final String? style;
 
   /// True if the map should show a compass when rotated.
   final bool compassEnabled;
@@ -374,6 +497,8 @@ class _CustomMap extends StatefulWidget {
   final bool fortyFiveDegreeImageryEnabled;
 
   /// Padding to be set on map. See https://developers.google.com/maps/documentation/android-sdk/map#map_padding for more details.
+  ///
+  /// If no padding is specified, the default padding is 0.
   final EdgeInsets padding;
 
   /// Markers to be placed on the map.
@@ -388,8 +513,45 @@ class _CustomMap extends StatefulWidget {
   /// Circles to be placed on the map.
   final Set<Circle> circles;
 
+  /// Heatmaps to show on the map.
+  final Set<Heatmap> heatmaps;
+
   /// Tile overlays to be placed on the map.
   final Set<TileOverlay> tileOverlays;
+
+  /// Cluster Managers to be initialized for the map.
+  ///
+  /// On the web, an extra step is required to enable clusters.
+  /// See https://pub.dev/packages/google_maps_flutter_web.
+  final Set<ClusterManager> clusterManagers;
+
+  /// Ground overlays to be initialized for the map.
+  ///
+  /// Support table for Ground Overlay features:
+  /// | Feature                     | Android                  | iOS                      | Web |
+  /// |-----------------------------|--------------------------|--------------------------|-----|
+  /// | [GroundOverlay.image]       | Yes                      | Yes                      | Yes |
+  /// | [GroundOverlay.bounds]      | Yes                      | Yes                      | Yes |
+  /// | [GroundOverlay.position]    | Yes                      | Yes                      | No  |
+  /// | [GroundOverlay.width]       | Yes (with position only) | No                       | No  |
+  /// | [GroundOverlay.height]      | Yes (with position only) | No                       | No  |
+  /// | [GroundOverlay.anchor]      | Yes                      | Yes                      | No  |
+  /// | [GroundOverlay.zoomLevel]   | No                       | Yes (with position only) | No  |
+  /// | [GroundOverlay.bearing]     | Yes                      | Yes                      | No  |
+  /// | [GroundOverlay.transparency]| Yes                      | Yes                      | Yes |
+  /// | [GroundOverlay.zIndex]      | Yes                      | Yes                      | No  |
+  /// | [GroundOverlay.visible]     | Yes                      | Yes                      | Yes |
+  /// | [GroundOverlay.clickable]   | Yes                      | Yes                      | Yes |
+  /// | [GroundOverlay.onTap]       | Yes                      | Yes                      | Yes |
+  ///
+  /// - On Android, [GroundOverlay.width] is required if
+  ///   [GroundOverlay.position] is set.
+  /// - On iOS, [GroundOverlay.zoomLevel] is required if
+  ///   [GroundOverlay.position] is set.
+  /// - [GroundOverlay.image] must be a [MapBitmap]. See [AssetMapBitmap] and
+  ///   [BytesMapBitmap]. [MapBitmap.bitmapScaling] must be set to
+  ///   [MapBitmapScaling.none].
+  final Set<GroundOverlay> groundOverlays;
 
   /// Called when the camera starts moving.
   ///
@@ -426,6 +588,8 @@ class _CustomMap extends StatefulWidget {
   /// chevron if the device is moving.
   /// * The My Location button animates to focus on the user's current location
   /// if the user's location is currently known.
+  ///
+  /// This feature is not present in the Google Maps SDK for the web.
   ///
   /// Enabling this feature requires adding location permissions to both native
   /// platforms of your app.
@@ -481,19 +645,57 @@ class _CustomMap extends StatefulWidget {
   /// See [WebGestureHandling] for more details.
   final WebGestureHandling? webGestureHandling;
 
+  /// This setting controls how the API handles cameraControl button position on the map. Web only.
+  ///
+  /// If null, the Google Maps API will use its default camera control position.
+  ///
+  /// See [WebCameraControlPosition] for more details.
+  final WebCameraControlPosition? webCameraControlPosition;
+
+  /// Enables or disables the Camera controls. Web only.
+  ///
+  /// See https://developers.google.com/maps/documentation/javascript/controls for more details.
+  final bool webCameraControlEnabled;
+
   /// Identifier that's associated with a specific cloud-based map style.
   ///
   /// See https://developers.google.com/maps/documentation/get-map-id
   /// for more details.
-  final String? cloudMapId;
+  final String? mapId;
+
+  /// Indicates whether map uses [AdvancedMarker]s or [Marker]s.
+  ///
+  /// [AdvancedMarker] and [Marker]s classes might not be related to each other
+  /// in the platform implementation. It's important to set the correct
+  /// [GoogleMapMarkerType] so that the platform implementation can handle the
+  /// markers:
+  /// * If [GoogleMapMarkerType.advancedMarker] is used, all markers must be of
+  ///   type [AdvancedMarker].
+  /// * If [GoogleMapMarkerType.marker] is used, markers cannot be of type
+  ///   [AdvancedMarker].
+  ///
+  /// While some features work with either type, using the incorrect type
+  /// may result in unexpected behavior.
+  final GoogleMapMarkerType markerType;
+
+  /// Color scheme for the cloud-style map. Web only.
+  ///
+  /// The colorScheme option can only be set when the map is initialized;
+  /// setting this option after the map is created will have no effect.
+  ///
+  /// See https://developers.google.com/maps/documentation/javascript/mapcolorscheme for more details.
+  final MapColorScheme? colorScheme;
 
   @override
   State<_CustomMap> createState() => _CustomMapState();
 }
 
 class _CustomMapState extends State<_CustomMap> {
-  late final Set<Marker> _previousMarkers;
+  late final Set<Marker> _ghostMarkers = {};
+  late final Map<String, MarkerAnimationType> _markersAnimationType;
   late final GoogleMapController _googleMapController;
+  final fadeInNotifier = MarkerFadeNotifier(0.0);
+  final fadeOutNotifier = MarkerFadeNotifier(1.0);
   double _initialZoom = 0;
   double _finalZoom = 0;
 
@@ -502,88 +704,203 @@ class _CustomMapState extends State<_CustomMap> {
     super.initState();
     _initialZoom = widget.initialCameraPosition.zoom;
     _finalZoom = widget.initialCameraPosition.zoom;
-    _previousMarkers = {...widget.markers};
+    _markersAnimationType = Map.fromIterables(
+        widget.markers.map((e) => e.markerId.value),
+        widget.markers.map((e) => MarkerAnimationType.fadeIn));
+    _startAnimationSequence();
+
+    // _previousMarkers = {...widget.markers};
   }
 
   @override
   void didUpdateWidget(covariant _CustomMap oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if ((oldWidget.markers.isNotEmpty && widget.markers.isEmpty) ||
-        !oldWidget.markers
-            .map((e) => e.markerId.value)
-            .toSet()
-            .containsAll(widget.markers.map((e) => e.markerId.value))) {
-      _previousMarkers
-        ..clear()
-        ..addAll(oldWidget.markers);
-      context.read<GoogleMapFadeMarkersCubit>().startAnimationChangeMarkers();
-    }
+    _classifyMarkerChanges(oldWidget.markers, widget.markers);
+    _startAnimationSequence();
+  }
+
+  @override
+  void dispose() {
+    fadeInNotifier.dispose();
+    fadeOutNotifier.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final opacityMarkers = context
-        .select((GoogleMapFadeMarkersCubit bloc) => bloc.state.opacityMarkers);
-    return GoogleMap(
-      initialCameraPosition: widget.initialCameraPosition,
-      onMapCreated: (controller) {
-        _googleMapController = controller;
-        widget.onMapCreated?.call(controller);
-      },
-      onCameraIdle: () async {
-        widget.onCameraIdle?.call();
-        _finalZoom = await _googleMapController.getZoomLevel();
-        if (_initialZoom != _finalZoom) {
-          widget.onZoomMove?.call(
-              _initialZoom > _finalZoom ? ZoomType.zoomOut : ZoomType.zoomIn,
-              _finalZoom);
-        }
-      },
-      buildingsEnabled: widget.buildingsEnabled,
-      webGestureHandling: widget.webGestureHandling,
-      cameraTargetBounds: widget.cameraTargetBounds,
-      circles: widget.circles,
-      cloudMapId: widget.cloudMapId,
-      compassEnabled: widget.compassEnabled,
-      fortyFiveDegreeImageryEnabled: widget.fortyFiveDegreeImageryEnabled,
-      gestureRecognizers: widget.gestureRecognizers,
-      indoorViewEnabled: widget.indoorViewEnabled,
-      layoutDirection: widget.layoutDirection,
-      liteModeEnabled: widget.liteModeEnabled,
-      mapToolbarEnabled: widget.mapToolbarEnabled,
-      mapType: widget.mapType,
-      minMaxZoomPreference: widget.minMaxZoomPreference,
-      myLocationButtonEnabled: widget.myLocationButtonEnabled,
-      myLocationEnabled: widget.myLocationEnabled,
-      onCameraMove: widget.onCameraMove,
-      onCameraMoveStarted: () async {
-        widget.onCameraMoveStarted?.call();
-        _initialZoom = await _googleMapController.getZoomLevel();
-      },
-      onLongPress: widget.onLongPress,
-      onTap: widget.onTap,
-      padding: widget.padding,
-      polygons: widget.polygons,
-      polylines: widget.polylines,
-      rotateGesturesEnabled: widget.rotateGesturesEnabled,
-      scrollGesturesEnabled: widget.scrollGesturesEnabled,
-      tileOverlays: widget.tileOverlays,
-      tiltGesturesEnabled: widget.tiltGesturesEnabled,
-      trafficEnabled: widget.trafficEnabled,
-      zoomControlsEnabled: widget.zoomControlsEnabled,
-      zoomGesturesEnabled: widget.zoomGesturesEnabled,
-      markers: {
-        ..._previousMarkers
-            .map(
-              (e) =>
-                  e.copyWith(alphaParam: opacityMarkers.previousMarkersOpacity),
-            )
-            .where((element) => element.alpha != 0.0)
-            .toSet(),
-        ...widget.markers.map(
-          (e) => e.copyWith(alphaParam: opacityMarkers.currentMarkersOpacity),
-        ),
-      },
+    // final opacityMarkers = context
+    //     .select((GoogleMapFadeMarkersCubit bloc) => bloc.state.opacityMarkers);
+    return ValueListenableBuilder(
+      valueListenable: fadeInNotifier,
+      builder: (context, fadeInOpacity, child) => ValueListenableBuilder(
+          valueListenable: fadeOutNotifier,
+          builder: (context, outOpacity, child) => GoogleMap(
+                  initialCameraPosition: widget.initialCameraPosition,
+                  onMapCreated: (controller) {
+                    _googleMapController = controller;
+                    widget.onMapCreated?.call(controller);
+                  },
+                  onCameraIdle: () async {
+                    widget.onCameraIdle?.call();
+                    _finalZoom = await _googleMapController.getZoomLevel();
+                    if (_initialZoom != _finalZoom) {
+                      widget.onZoomMove?.call(
+                          _initialZoom > _finalZoom
+                              ? ZoomType.zoomOut
+                              : ZoomType.zoomIn,
+                          _finalZoom);
+                    }
+                  },
+                  buildingsEnabled: widget.buildingsEnabled,
+                  webGestureHandling: widget.webGestureHandling,
+                  cameraTargetBounds: widget.cameraTargetBounds,
+                  circles: widget.circles,
+                  mapId: widget.mapId,
+                  clusterManagers: widget.clusterManagers,
+                  colorScheme: widget.colorScheme,
+                  groundOverlays: widget.groundOverlays,
+                  heatmaps: widget.heatmaps,
+                  markerType: widget.markerType,
+                  style: widget.style,
+                  webCameraControlEnabled: widget.webCameraControlEnabled,
+                  webCameraControlPosition: widget.webCameraControlPosition,
+                  compassEnabled: widget.compassEnabled,
+                  fortyFiveDegreeImageryEnabled:
+                      widget.fortyFiveDegreeImageryEnabled,
+                  gestureRecognizers: widget.gestureRecognizers,
+                  indoorViewEnabled: widget.indoorViewEnabled,
+                  layoutDirection: widget.layoutDirection,
+                  liteModeEnabled: widget.liteModeEnabled,
+                  mapToolbarEnabled: widget.mapToolbarEnabled,
+                  mapType: widget.mapType,
+                  minMaxZoomPreference: widget.minMaxZoomPreference,
+                  myLocationButtonEnabled: widget.myLocationButtonEnabled,
+                  myLocationEnabled: widget.myLocationEnabled,
+                  onCameraMove: widget.onCameraMove,
+                  onCameraMoveStarted: () async {
+                    widget.onCameraMoveStarted?.call();
+                    _initialZoom = await _googleMapController.getZoomLevel();
+                  },
+                  onLongPress: widget.onLongPress,
+                  onTap: widget.onTap,
+                  padding: widget.padding,
+                  polygons: widget.polygons,
+                  polylines: widget.polylines,
+                  rotateGesturesEnabled: widget.rotateGesturesEnabled,
+                  scrollGesturesEnabled: widget.scrollGesturesEnabled,
+                  tileOverlays: widget.tileOverlays,
+                  tiltGesturesEnabled: widget.tiltGesturesEnabled,
+                  trafficEnabled: widget.trafficEnabled,
+                  zoomControlsEnabled: widget.zoomControlsEnabled,
+                  zoomGesturesEnabled: widget.zoomGesturesEnabled,
+                  markers: {
+                    // 1. Procesamos los marcadores actuales
+                    ...widget.markers.map((m) {
+                      final type = _markersAnimationType[m.markerId.value] ??
+                          MarkerAnimationType.none;
+                      double finalAlpha;
+
+                      switch (type) {
+                        case MarkerAnimationType.fadeIn:
+                          finalAlpha = fadeInOpacity;
+                          break;
+                        case MarkerAnimationType.fadeOut:
+                        case MarkerAnimationType.none:
+                          finalAlpha = 1.0;
+                          break;
+                      }
+
+                      return m.copyWith(alphaParam: finalAlpha);
+                    }).where((m) => m.alpha > 0.0),
+
+                    ..._ghostMarkers.map((m) {
+                      return m.copyWith(alphaParam: outOpacity);
+                    }).where((m) => m.alpha > 0.0),
+                  })),
     );
+  }
+
+  void _classifyMarkerChanges(Set<Marker> oldMarkers, Set<Marker> newMarkers) {
+    _markersAnimationType.clear();
+    _ghostMarkers.clear();
+
+    final oldIds = oldMarkers.map((m) => m.markerId.value).toSet();
+    final newIds = newMarkers.map((m) => m.markerId.value).toSet();
+
+    for (final newMarker in newMarkers) {
+      final String id = newMarker.markerId.value;
+
+      if (!oldIds.contains(id)) {
+        _markersAnimationType[id] = MarkerAnimationType.fadeIn;
+      } else {
+        // Ya existía, comprobamos si se ha movido
+        final oldMarker = oldMarkers.firstWhere((m) => m.markerId.value == id);
+
+        if (oldMarker.position != newMarker.position) {
+          // ID igual pero posición distinta: necesita desaparecer en A y aparecer en B
+          Marker ogMarker = Marker(
+            markerId: MarkerId('${oldMarker.markerId.value}-old'),
+            alpha: oldMarker.alpha,
+            position: oldMarker.position,
+            icon: oldMarker.icon,
+            anchor: oldMarker.anchor,
+            draggable: oldMarker.draggable,
+            flat: oldMarker.flat,
+            infoWindow: oldMarker.infoWindow,
+            rotation: oldMarker.rotation,
+            visible: oldMarker.visible,
+            onTap: oldMarker.onTap,
+            onDragStart: oldMarker.onDragStart,
+            onDrag: oldMarker.onDrag,
+            onDragEnd: oldMarker.onDragEnd,
+            clusterManagerId: oldMarker.clusterManagerId,
+            consumeTapEvents: oldMarker.consumeTapEvents,
+            zIndexInt: oldMarker.zIndexInt,
+          );
+          _ghostMarkers.add(ogMarker);
+          _markersAnimationType[ogMarker.markerId.value] =
+              MarkerAnimationType.fadeOut;
+          _markersAnimationType[id] = MarkerAnimationType.fadeIn;
+        } else {
+          // Está en el mismo sitio: no le molestamos
+          _markersAnimationType[id] = MarkerAnimationType.none;
+        }
+      }
+    }
+
+    // 2. Analizamos los marcadores que se han ido (los "fantasmas")
+    for (final oldMarker in oldMarkers) {
+      final String id = oldMarker.markerId.value;
+
+      if (!newIds.contains(id)) {
+        // Estaba antes pero ya no está en la nueva lista
+        _markersAnimationType[id] = MarkerAnimationType.fadeOut;
+        _ghostMarkers
+            .add(oldMarker); // Lo retenemos para poder animar su salida
+      }
+    }
+  }
+
+  Future<void> _startAnimationSequence() async {
+    // 1. ¿Necesitamos limpiar algo antes de mostrar lo nuevo?
+    bool needsFadeOut = _markersAnimationType.values
+        .any((type) => type == MarkerAnimationType.fadeOut);
+    bool needsFadeIn = _markersAnimationType.values
+        .any((type) => type == MarkerAnimationType.fadeIn);
+
+    if (needsFadeOut) {
+      await fadeOutNotifier.fadeOut(duration: widget.duration);
+      setState(() {
+        _ghostMarkers.clear();
+      });
+      fadeOutNotifier.value = 1.0;
+    }
+    if (needsFadeIn) {
+      await fadeInNotifier.fadeIn(duration: widget.duration);
+      fadeInNotifier.value = 0.0;
+      _markersAnimationType.updateAll((key, value) => MarkerAnimationType.none);
+    }
+
+    fadeInNotifier.value = 0;
   }
 }
