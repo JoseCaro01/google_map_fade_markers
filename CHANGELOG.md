@@ -4,7 +4,7 @@
 
 ## 0.0.2 
 
-* Update CHANGELOG.md from previous version.
+* Updated CHANGELOG.md from previous version.
 
 ## 0.0.3 
 
@@ -21,4 +21,8 @@
 
 ## 0.0.6
 
-* Update pubspec version and simplify fade logic using notifiers
+* Updated pubspec version and simplify fade logic using notifiers
+
+## 0.0.7
+
+* Updated readme

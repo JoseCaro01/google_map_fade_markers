@@ -72,12 +72,11 @@ class _MainAppState extends State<MainApp> {
     setState(() {
       switch (_testStep) {
         case 0:
-          // ESCENARIO 1: Mover un marcador (Full Cycle / Ghost)
           markers.clear();
           markers.addAll({
             Marker(
               markerId: MarkerId("1"),
-              position: LatLng(41.000000, -4.000000), // Nueva posición
+              position: LatLng(41.000000, -4.000000),
               clusterManagerId: _managerId,
             ),
             Marker(

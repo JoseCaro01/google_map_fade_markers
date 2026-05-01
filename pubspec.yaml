@@ -1,7 +1,7 @@
 name: google_map_fade_markers
 description: "This package integrate for the markers a fade animation when the
   markers changes"
-version: 0.0.6
+version: 0.0.7
 repository: https://github.com/JoseCaro01/google_map_fade_markers
 
 environment:
